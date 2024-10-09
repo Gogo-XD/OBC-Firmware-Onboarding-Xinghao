@@ -44,17 +44,18 @@ void initThermalSystemManager(lm75bd_config_t *config) {
 
 error_code_t thermalMgrSendEvent(thermal_mgr_event_t *event) {
   /* Send an event to the thermal manager queue */
-
-  if (xQueueSend(thermalMgrQueueHandle, event, 0) != pdPASS){
-    return ERR_CODE_QUEUE_FULL;
-  }
-
+  
   if(event == NULL){
     return ERR_CODE_INVALID_ARG; 
   }
 
   if(thermalMgrQueueHandle == NULL){
     return ERR_CODE_INVALID_STATE;
+  }
+
+
+  if (xQueueSend(thermalMgrQueueHandle, event, 0) != pdPASS){
+    return ERR_CODE_QUEUE_FULL;
   }
 
 
@@ -95,23 +96,30 @@ static void thermalMgr(void *pvParameters) {
       }
 
       // Interupts
-       else if(event.type == THERMAL_MGR_EVENT_OS_INTERRUPT){ // add to termal_mgr.h file
+      else if(event.type == THERMAL_MGR_EVENT_OS_INTERRUPT){ // add to tearmal_mgr.h file
         float currTemp = 0.0f;
 
-        // Lower (safe) temperatures
-        if(currTemp < config.hysteresisThresholdCelsius){
-          safeOperatingConditions();
-        }
+        LOG_IF_ERROR_CODE(readTempLM75BD(config.devAddr, &currTemp));
         
-        // Higher temperatures
-        else{
-          overTemperatureDetected();
+        if(errCode == ERR_CODE_SUCCESS){
+          // Lower (safe) temperatures
+          if(currTemp < config.hysteresisThresholdCelsius){
+            safeOperatingConditions();
+          }
+        
+          // Higher temperatures
+          else{
+            overTemperatureDetected();
+          }
         }
-            }
+      }
 
+      // Invalid Event
+      else {
+        LOG_IF_ERROR_CODE(ERR_CODE_INVALID_EVENT_RECEIVED);
+      }
     }
   }
-  
 }
 
 void addTemperatureTelemetry(float tempC) {
