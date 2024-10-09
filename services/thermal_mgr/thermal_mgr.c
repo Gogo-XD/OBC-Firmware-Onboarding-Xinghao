@@ -2,6 +2,7 @@
 #include "errors.h"
 #include "lm75bd.h"
 #include "console.h"
+#include "logging.h"
 
 #include <FreeRTOS.h>
 #include <os_task.h>
@@ -44,18 +45,73 @@ void initThermalSystemManager(lm75bd_config_t *config) {
 error_code_t thermalMgrSendEvent(thermal_mgr_event_t *event) {
   /* Send an event to the thermal manager queue */
 
+  if (xQueueSend(thermalMgrQueueHandle, event, 0) != pdPASS){
+    return ERR_CODE_QUEUE_FULL;
+  }
+
+  if(event == NULL){
+    return ERR_CODE_INVALID_ARG; 
+  }
+
+  if(thermalMgrQueueHandle == NULL){
+    return ERR_CODE_INVALID_STATE;
+  }
+
+
   return ERR_CODE_SUCCESS;
 }
 
 void osHandlerLM75BD(void) {
   /* Implement this function */
+
+  thermal_mgr_event_t event;
+
+  event.type = THERMAL_MGR_EVENT_OS_INTERRUPT;
+
+  thermalMgrSendEvent(&event);
+ 
 }
 
 static void thermalMgr(void *pvParameters) {
-  /* Implement this task */
+    /* Implement this task */
+
+  lm75bd_config_t config = *(lm75bd_config_t *)pvParameters;
+
   while (1) {
-    
+    thermal_mgr_event_t event;
+    error_code_t errCode;
+
+    // Get event from queue
+    if (xQueueReceive(thermalMgrQueueHandle, &event, portMAX_DELAY) == pdTRUE) {
+        
+      // Handle event
+      if (event.type == THERMAL_MGR_EVENT_MEASURE_TEMP_CMD) {
+        float currTemp = 0.0f;
+        LOG_IF_ERROR_CODE(readTempLM75BD(config.devAddr, &currTemp));
+        
+        if (errCode == ERR_CODE_SUCCESS){
+          addTemperatureTelemetry(currTemp);
+        }
+      }
+
+      // Interupts
+       else if(event.type == THERMAL_MGR_EVENT_OS_INTERRUPT){ // add to termal_mgr.h file
+        float currTemp = 0.0f;
+
+        // Lower (safe) temperatures
+        if(currTemp < config.hysteresisThresholdCelsius){
+          safeOperatingConditions();
+        }
+        
+        // Higher temperatures
+        else{
+          overTemperatureDetected();
+        }
+            }
+
+    }
   }
+  
 }
 
 void addTemperatureTelemetry(float tempC) {
@@ -69,3 +125,12 @@ void overTemperatureDetected(void) {
 void safeOperatingConditions(void) { 
   printConsole("Returned to safe operating conditions!\n");
 }
+
+
+
+
+
+
+
+
+
