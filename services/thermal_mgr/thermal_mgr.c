@@ -96,7 +96,7 @@ static void thermalMgr(void *pvParameters) {
       }
 
       // Interupts
-      else if(event.type == THERMAL_MGR_EVENT_OS_INTERRUPT){ // add to tearmal_mgr.h file
+      else if(event.type == THERMAL_MGR_EVENT_OS_INTERRUPT){ // add to thermal_mgr.h file
         float currTemp = 0.0f;
 
         LOG_IF_ERROR_CODE(readTempLM75BD(config.devAddr, &currTemp));

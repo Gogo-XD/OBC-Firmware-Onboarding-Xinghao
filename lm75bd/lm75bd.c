@@ -29,12 +29,17 @@ error_code_t readTempLM75BD(uint8_t devAddr, float *temp) {
   /* Implement this driver function */
   error_code_t errCode;
 
+  // check if temp is NULL
+  if (temp == NULL){
+    return ERR_CODE_INVALID_ARG;
+  }
+
   // Pointer Register
   uint8_t regAddr = 0x00;
-  RETURN_IF_ERROR_CODE(i2cSendTo(devAddr, &regAddr, 1));
+  RETURN_IF_ERROR_CODE(i2cSendTo(devAddr, &regAddr, sizeof(regAddr)));
 
   uint8_t buff[2] = {0};
-  RETURN_IF_ERROR_CODE(i2cReceiveFrom(devAddr, buff, 2));
+  RETURN_IF_ERROR_CODE(i2cReceiveFrom(devAddr, buff, sizeof(buff)));
 
   // 16 bit temperature
   int16_t tempBits = (int16_t)((buff[0] << 8) | buff[1]);
